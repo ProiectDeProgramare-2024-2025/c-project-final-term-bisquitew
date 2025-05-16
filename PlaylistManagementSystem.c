@@ -6,9 +6,8 @@
 #define MAX_SONGS 100
 #define MAX_PLAYLISTS 100
 #define MAX_NAME_LENGTH 100
-#define CLEAR_SCREEN() system("cls")  // Windows: "cls" | Linux/Mac: "clear"
+#define CLEAR_SCREEN() system("cls")  
 
-// Color definitions
 #define COLOR_RED     "\x1b[31m"
 #define COLOR_GREEN   "\x1b[32m"
 #define COLOR_YELLOW  "\x1b[33m"
@@ -24,6 +23,7 @@ typedef struct {
     int song_count;
 } Playlist;
 
+// Global variables
 Playlist playlists[MAX_PLAYLISTS];
 int playlist_count = 0;
 
@@ -31,6 +31,7 @@ int playlist_count = 0;
 void savePlaylists();
 void loadPlaylists();
 void addPlaylist();
+void removePlaylist();
 void viewPlaylists();
 void managePlaylist(int index);
 void mainMenu();
@@ -41,8 +42,10 @@ void printWarning(const char* message);
 int getValidatedInteger(const char* prompt, int min, int max);
 float getValidatedFloat(const char* prompt, float min, float max);
 void getValidatedString(const char* prompt, char* dest, int max_length);
+void addSongToPlaylist(int index);
+void removeSongFromPlaylist(int index);
+void changePlaylistRating(int index);
 
-// Save all playlists to file
 void savePlaylists() {
     FILE *file = fopen("playlists.dat", "wb");
     if (!file) {
@@ -59,7 +62,6 @@ void savePlaylists() {
     printSuccess("Playlists saved successfully!");
 }
 
-// Load playlists from file
 void loadPlaylists() {
     FILE *file = fopen("playlists.dat", "rb");
     if (!file) {
@@ -74,7 +76,6 @@ void loadPlaylists() {
     fclose(file);
 }
 
-// Add a new playlist
 void addPlaylist() {
     if (playlist_count >= MAX_PLAYLISTS) {
         printError("Maximum playlists reached!");
@@ -91,7 +92,37 @@ void addPlaylist() {
     printSuccess("Playlist added successfully!");
 }
 
-// View all playlists
+void removePlaylist() {
+    if (playlist_count == 0) {
+        printError("No playlists available to remove!");
+        return;
+    }
+    
+    CLEAR_SCREEN();
+    viewPlaylists();
+    int plNum = getValidatedInteger("\nEnter playlist number to remove (0 to cancel):", 
+                                  0, playlist_count);
+    if (plNum == 0) return;
+    
+    // Confirm deletion
+    printf("\nAre you sure you want to delete playlist '%s'? (y/n): ", playlists[plNum-1].name);
+    char confirm;
+    scanf(" %c", &confirm);
+    if (tolower(confirm) != 'y') {
+        printWarning("Playlist deletion cancelled.");
+        return;
+    }
+    
+    // Shift all playlists after the removed one to fill the gap
+    for (int i = plNum-1; i < playlist_count-1; i++) {
+        playlists[i] = playlists[i+1];
+    }
+    
+    playlist_count--;
+    savePlaylists();
+    printSuccess("Playlist removed successfully!");
+}
+
 void viewPlaylists() {
     if (playlist_count == 0) {
         printWarning("No playlists available.");
@@ -109,7 +140,6 @@ void viewPlaylists() {
     }
 }
 
-// Add song to playlist
 void addSongToPlaylist(int index) {
     if (playlists[index].song_count >= MAX_SONGS) {
         printError("Playlist is full!");
@@ -124,7 +154,6 @@ void addSongToPlaylist(int index) {
     printSuccess("Song added successfully!");
 }
 
-// Remove song from playlist
 void removeSongFromPlaylist(int index) {
     if (playlists[index].song_count == 0) {
         printError("Playlist is already empty!");
@@ -140,7 +169,6 @@ void removeSongFromPlaylist(int index) {
                                     0, playlists[index].song_count);
     if (songNum == 0) return;
     
-    // Shift all songs after the removed one
     for (int i = songNum-1; i < playlists[index].song_count-1; i++) {
         strcpy(playlists[index].songs[i], playlists[index].songs[i+1]);
     }
@@ -150,14 +178,12 @@ void removeSongFromPlaylist(int index) {
     printSuccess("Song removed successfully!");
 }
 
-// Change playlist rating
 void changePlaylistRating(int index) {
     playlists[index].rating = getValidatedFloat("Enter new rating (0-5):", 0, 5);
     savePlaylists();
     printSuccess("Rating updated successfully!");
 }
 
-// Manage individual playlist
 void managePlaylist(int index) {
     char input;
     do {
@@ -195,7 +221,7 @@ void managePlaylist(int index) {
                 
             case '4':
                 CLEAR_SCREEN();
-                return; // Return to main menu
+                return; 
                 
             default:
                 printError("Invalid choice!");
@@ -205,7 +231,65 @@ void managePlaylist(int index) {
     } while (1);
 }
 
-// Main menu
+void printHeader(const char* text) {
+    printf(COLOR_MAGENTA "\n=== %s ===\n" COLOR_RESET, text);
+}
+
+void printSuccess(const char* message) {
+    printf(COLOR_GREEN "[SUCCESS] %s\n" COLOR_RESET, message);
+}
+
+void printError(const char* message) {
+    printf(COLOR_RED "[ERROR] %s\n" COLOR_RESET, message);
+}
+
+void printWarning(const char* message) {
+    printf(COLOR_YELLOW "[WARNING] %s\n" COLOR_RESET, message);
+}
+
+int getValidatedInteger(const char* prompt, int min, int max) {
+    int value;
+    while (1) {
+        printf("%s ", prompt);
+        if (scanf("%d", &value)) {
+            if (value >= min && value <= max) {
+                return value;
+            }
+        }
+        printError("Invalid input! Please try again.");
+        
+        while (getchar() != '\n');
+    }
+}
+
+float getValidatedFloat(const char* prompt, float min, float max) {
+    float value;
+    while (1) {
+        printf("%s ", prompt);
+        if (scanf("%f", &value)) {
+            if (value >= min && value <= max) {
+                return value;
+            }
+        }
+        printError("Invalid input! Please try again.");
+        
+        while (getchar() != '\n');
+    }
+}
+
+void getValidatedString(const char* prompt, char* dest, int max_length) {
+    printf("%s ", prompt);
+    while (getchar() != '\n'); // Clear input buffer
+    
+    if (fgets(dest, max_length, stdin)) {
+        // Remove trailing newline if present
+        size_t len = strlen(dest);
+        if (len > 0 && dest[len-1] == '\n') {
+            dest[len-1] = '\0';
+        }
+    }
+}
+
 void mainMenu() {
     int choice;
     do {
@@ -214,10 +298,15 @@ void mainMenu() {
         printf("1. Add Playlist\n");
         printf("2. View Playlists\n");
         printf("3. Manage Playlist\n");
-        printf("4. Exit\n");
+        printf("4. Remove Playlist\n");
+        printf("5. Exit\n");
         printf("Choice: ");
         
-        scanf("%d", &choice);
+        if (scanf("%d", &choice) != 1) {
+            printError("Invalid input!");
+            while (getchar() != '\n'); // Clear input buffer
+            continue;
+        }
         
         switch(choice) {
             case 1:
@@ -251,6 +340,13 @@ void mainMenu() {
                 break;
                 
             case 4:
+                CLEAR_SCREEN();
+                removePlaylist();
+                printf("Press any key to return to main menu...");
+                getchar(); getchar();
+                break;
+                
+            case 5:
                 printf("Goodbye!\n");
                 exit(0);
                 
@@ -260,78 +356,6 @@ void mainMenu() {
                 getchar(); getchar();
         }
     } while (1);
-}
-
-// Helper function to print colored headers
-void printHeader(const char* text) {
-    printf(COLOR_MAGENTA "\n=== %s ===\n" COLOR_RESET, text);
-}
-
-// Helper function to print success messages
-void printSuccess(const char* message) {
-    printf(COLOR_GREEN "[SUCCESS] %s\n" COLOR_RESET, message);
-}
-
-// Helper function to print error messages
-void printError(const char* message) {
-    printf(COLOR_RED "[ERROR] %s\n" COLOR_RESET, message);
-}
-
-// Helper function to print warning messages
-void printWarning(const char* message) {
-    printf(COLOR_YELLOW "[WARNING] %s\n" COLOR_RESET, message);
-}
-
-// Helper function to get validated integer input
-int getValidatedInteger(const char* prompt, int min, int max) {
-    int value;
-    while (1) {
-        printf("%s ", prompt);
-        if (scanf("%d", &value)) {
-            if (value >= min && value <= max) {
-                return value;
-            }
-        }
-        printError("Invalid input! Please try again.");
-        // Clear input buffer
-        while (getchar() != '\n');
-    }
-}
-
-// Helper function to get validated float input
-float getValidatedFloat(const char* prompt, float min, float max) {
-    float value;
-    while (1) {
-        printf("%s ", prompt);
-        if (scanf("%f", &value)) {
-            if (value >= min && value <= max) {
-                return value;
-            }
-        }
-        printError("Invalid input! Please try again.");
-        // Clear input buffer
-        while (getchar() != '\n');
-    }
-}
-
-// Helper function to get validated string input
-void getValidatedString(const char* prompt, char* dest, int max_length) {
-    printf("%s ", prompt);
-    while (1) {
-        if (fgets(dest, max_length, stdin)) {
-            // Remove newline character if present
-            size_t len = strlen(dest);
-            if (len > 0 && dest[len-1] == '\n') {
-                dest[len-1] = '\0';
-            }
-            
-            // Check if string is not empty
-            if (strlen(dest) > 0) {
-                return;
-            }
-        }
-        printError("Invalid input! Please try again.");
-    }
 }
 
 int main() {
